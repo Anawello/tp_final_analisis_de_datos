@@ -18,7 +18,7 @@ class DatoGrafico(TypedDict):
     label: str
 
 # -------------------------------- constantes -------------------------------- #
-AGLOMERADO = {"gran mendoza":"10", "gba":"33"}
+AGLOMERADO = {"gran_mendoza":"10", "gba":"33"}
 AÑOS = [ 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
 INFLACION_MENSUAL = pd.DataFrame(inflacion_mensual)
 
@@ -32,7 +32,7 @@ def init():
     # precargar datos si aun no lo estan
     if not os.path.exists("periodos/parquet"):
         print("Microdatos no precargados.")
-        precargar_microdatos_eph("gran mendoza");
+        precargar_microdatos_eph("gran_mendoza");
         precargar_microdatos_eph("gba");
 
 def precargar_microdatos_eph(aglomerado: str):
@@ -228,26 +228,26 @@ def graficar_tasas_aglomerado(aglomerado: str, df: pd.DataFrame):
 
 def graficar_tasa_comparativa(tasa: str, df_gran_mendoza: pd.DataFrame, df_gba: pd.DataFrame):
 
-    df_gran_mendoza = df_gran_mendoza[["anio", tasa]].rename(columns={tasa: "gran mendoza"})
+    df_gran_mendoza = df_gran_mendoza[["anio", tasa]].rename(columns={tasa: "gran_mendoza"})
     df_gba = df_gba[["anio", tasa]].rename(columns={tasa: "gba"})
 
     df = df_gran_mendoza.merge(df_gba, on="anio")
 
     grafico_de_lineas(df, f"Evolución comparativa anual de la tasa de {tasa.title()} entre GBA y Gran Mendoza (2016-2025)", "Años", f"Tasa de {tasa.title()} (%)", "anio", [
-        {"valor":"gran mendoza", "label":"Mendoza"},
+        {"valor":"gran_mendoza", "label":"Mendoza"},
         {"valor":"gba", "label":"GBA"},
     ])
 
 
 def generar_graficos_tasas():
-    tasas_gran_mendoza = calcular_tasas_laborales("gran mendoza")
+    tasas_gran_mendoza = calcular_tasas_laborales("gran_mendoza")
     tasas_gba = calcular_tasas_laborales("gba")
 
     graficar_tasa_comparativa("desocupacion", tasas_gran_mendoza, tasas_gba)
     graficar_tasa_comparativa("actividad", tasas_gran_mendoza, tasas_gba)
     graficar_tasa_comparativa("empleo", tasas_gran_mendoza, tasas_gba)
 
-    graficar_tasas_aglomerado("gran mendoza", tasas_gran_mendoza )
+    graficar_tasas_aglomerado("gran_mendoza", tasas_gran_mendoza )
     graficar_tasas_aglomerado("gba", tasas_gba) 
 
 def obtener_ipc_trimestral(): 
@@ -289,4 +289,30 @@ def obtener_ipc_trimestral_acumulada():
 
     return df
 
-generar_graficos_tasas()
+def obtener_ingreso_medio(aglomerado: str):
+    medias_trimestrales = []
+    for año in AÑOS:
+
+        for i in range(4):
+            df = obtener_datos(aglomerado, año, CategoriasEPH.INVIVIDUAL, i+1)
+            if isinstance(df, pd.DataFrame):
+                ingreso_total_individual = pd.to_numeric(df["P47T"], errors="coerce")
+                pondera = pd.to_numeric(df["PONDERA"], errors="coerce")
+                media_ponderada = (ingreso_total_individual * pondera).sum() / pondera.sum()
+
+                medias_trimestrales.append({"año":año, "trimestre": i + 1,"ingreso_media_ponderada": media_ponderada})
+
+    return pd.DataFrame(medias_trimestrales);
+
+
+def obtener_ingreso_real(aglomerado: str) -> pd.DataFrame:
+    df_ipc_trimestral_acumulada = obtener_ipc_trimestral_acumulada()
+    df_ingreso_medio_aglomerado = obtener_ingreso_medio(aglomerado)
+
+    df = df_ipc_trimestral_acumulada.merge(df_ingreso_medio_aglomerado, on=["año", "trimestre"])
+    df["ingreso_media_real"] = df["ingreso_media_ponderada"] / df["ipc_acumulado"]
+
+    return df
+
+df = obtener_ingreso_real("gran_mendoza")
+print(df.head())
