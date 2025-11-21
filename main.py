@@ -133,71 +133,41 @@ def grafico_de_lineas(df: pd.DataFrame, titulo: str, label_x: str, label_y: str,
     plt.show()
 
 def calcular_tasas_laborales(aglomerado: str):
-    # -----------------------------
-    # 1. Cargar todos los años juntos
-    # -----------------------------
-    dfs = []
+    resultados  = []
+
     for anio in AÑOS:
         df = obtener_datos(aglomerado, anio, CategoriasEPH.INVIVIDUAL)
         if df is None:
             continue
-        df = df.copy()
-        df["anio"] = int(anio)
-        dfs.append(df)
 
-    if not dfs:
-        return pd.DataFrame()
+        # asegurar si no hay columnas
+        if "ESTADO" not in df.columns or "PONDERA" not in df.columns:
+            continue
 
-    df = pd.concat(dfs, ignore_index=True)
+        # transformar datos a numericos
+        df["ESTADO"] = pd.to_numeric(df["ESTADO"], errors="coerce")
+        df["PONDERA"] = pd.to_numeric(df["PONDERA"], errors="coerce")
 
-    # -----------------------------
-    # 2. Limpieza y preparación
-    # -----------------------------
-    df["ESTADO"] = pd.to_numeric(df["ESTADO"], errors="coerce")
-    df["PONDERA"] = pd.to_numeric(df["PONDERA"], errors="coerce")
-    df["CH06"] = pd.to_numeric(df["CH06"], errors="coerce")
+        # filtrar población mayor a 10 años
+        df = df[df["CH06"].astype(float) >= 10]
 
-    # Quitar filas inválidas
-    df = df.dropna(subset=["ESTADO", "PONDERA", "CH06"])
+        # ponderacion (darle un peso a cada dato)
+        ocupados    = df[df["ESTADO"] == 1]["PONDERA"].sum()
+        desocupados = df[df["ESTADO"] == 2]["PONDERA"].sum()
+        inactivos   = df[df["ESTADO"] == 3]["PONDERA"].sum()
 
-    # Población de 10+ años (estándar EPH)
-    df = df[df["CH06"] >= 10]
+        # calculo de tasas
+        pea = ocupados + desocupados
+        poblacion_total = pea + inactivos
 
-    # Solo valores válidos de ESTADO
-    df = df[df["ESTADO"].isin([1, 2, 3])]
+        resultados.append({
+            "anio": anio,
+            "actividad": (pea / poblacion_total) * 100,
+            "empleo":    (ocupados / poblacion_total) * 100,
+            "desocupacion": (desocupados / pea) * 100
+        })
 
-    # -----------------------------
-    # 3. Vectorización total
-    #    Pivot table = sumatoria por ESTADO y por año
-    # -----------------------------
-    tabla = df.pivot_table(
-        values="PONDERA",
-        index="anio",
-        columns="ESTADO",
-        aggfunc="sum",
-        fill_value=0
-    ).rename(columns={
-        1: "ocupados",
-        2: "desocupados",
-        3: "inactivos"
-    })
-
-    # -----------------------------
-    # 4. Cálculo de tasas
-    # -----------------------------
-    tabla["pea"] = tabla["ocupados"] + tabla["desocupados"]
-    tabla["poblacion_total"] = tabla["pea"] + tabla["inactivos"]
-
-    tabla["actividad"] = (tabla["pea"] / tabla["poblacion_total"]) * 100
-    tabla["empleo"] = (tabla["ocupados"] / tabla["poblacion_total"]) * 100
-    tabla["desocupacion"] = (tabla["desocupados"] / tabla["pea"]) * 100
-
-    # Reset index para que quede como DF normal
-    resultado = tabla.reset_index()[[
-        "anio", "actividad", "empleo", "desocupacion"
-    ]]
-
-    return resultado
+    return pd.DataFrame(resultados)
 
 """
 def calcular_tasas_laborales(aglomerado: str):
