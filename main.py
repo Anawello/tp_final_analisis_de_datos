@@ -6,6 +6,7 @@ import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 from typing import TypedDict, List
+from ipc_mensual import inflacion_mensual
 
 # ------------------------ enumeradores y diccionarios ----------------------- #
 class CategoriasEPH(Enum):
@@ -19,6 +20,7 @@ class DatoGrafico(TypedDict):
 # -------------------------------- constantes -------------------------------- #
 AGLOMERADO = {"gran mendoza":"10", "gba":"33"}
 AÑOS = [ 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+INFLACION_MENSUAL = pd.DataFrame(inflacion_mensual)
 
 # ---------------------------- datos geospaciales ---------------------------- #
 # TODO: hacer que se muestre en pantalla en un mapa segun un valor dado
@@ -224,10 +226,10 @@ def graficar_tasas_aglomerado(aglomerado: str, df: pd.DataFrame):
         {"valor":"desocupacion", "label":"desocupacion"},
     ])
 
-def graficar_tasa_comparativa(tasa: str, df_gran_mendoza: pd.DataFrame, df_gba):
+def graficar_tasa_comparativa(tasa: str, df_gran_mendoza: pd.DataFrame, df_gba: pd.DataFrame):
 
-    df_gran_mendoza = tasas_gran_mendoza[["anio", tasa]].rename(columns={tasa: "gran mendoza"})
-    df_gba = tasas_gba[["anio", tasa]].rename(columns={tasa: "gba"})
+    df_gran_mendoza = df_gran_mendoza[["anio", tasa]].rename(columns={tasa: "gran mendoza"})
+    df_gba = df_gba[["anio", tasa]].rename(columns={tasa: "gba"})
 
     df = df_gran_mendoza.merge(df_gba, on="anio")
 
@@ -237,12 +239,54 @@ def graficar_tasa_comparativa(tasa: str, df_gran_mendoza: pd.DataFrame, df_gba):
     ])
 
 
-tasas_gran_mendoza = calcular_tasas_laborales("gran mendoza")
-tasas_gba = calcular_tasas_laborales("gba")
+def generar_graficos_tasas():
+    tasas_gran_mendoza = calcular_tasas_laborales("gran mendoza")
+    tasas_gba = calcular_tasas_laborales("gba")
 
-graficar_tasa_comparativa("desocupacion", tasas_gran_mendoza, tasas_gba)
-graficar_tasa_comparativa("actividad", tasas_gran_mendoza, tasas_gba)
-graficar_tasa_comparativa("empleo", tasas_gran_mendoza, tasas_gba)
+    graficar_tasa_comparativa("desocupacion", tasas_gran_mendoza, tasas_gba)
+    graficar_tasa_comparativa("actividad", tasas_gran_mendoza, tasas_gba)
+    graficar_tasa_comparativa("empleo", tasas_gran_mendoza, tasas_gba)
 
-graficar_tasas_aglomerado("gran mendoza", tasas_gran_mendoza )
-graficar_tasas_aglomerado("gba", tasas_gba)
+    graficar_tasas_aglomerado("gran mendoza", tasas_gran_mendoza )
+    graficar_tasas_aglomerado("gba", tasas_gba) 
+
+def obtener_ipc_trimestral(): 
+    ipc_trimestrales = []
+    trimestre = 1
+
+    for i in range(INFLACION_MENSUAL.size // 4):
+        try:
+            ipc_trimestral = 1
+
+            for j in range(3):
+                ipc_trimestral *= (INFLACION_MENSUAL.loc[i*3 + j, "ipc"]) / 100 + 1
+
+            ipc_trimestral -= 1
+            ipc_trimestrales.append({
+                "año":int(INFLACION_MENSUAL.loc[i*3, "año"]), 
+                "trimestre": trimestre,                     
+                "ipc": float(ipc_trimestral)
+            })
+
+            if trimestre < 4:
+                trimestre += 1
+            else:
+                trimestre = 1
+        except:
+            continue
+
+    return pd.DataFrame(ipc_trimestrales)
+
+def obtener_ipc_trimestral_acumulada():
+    ipc_trimestrales = obtener_ipc_trimestral()
+    # seteo punto de comparacion
+    ipc_trimestrales.loc[0, "ipc"] = 0 
+
+    df = pd.DataFrame()
+    df["año"] = ipc_trimestrales["año"]
+    df["trimestre"] = ipc_trimestrales["trimestre"]
+    df["ipc_acumulado"] = (1 + ipc_trimestrales["ipc"]).cumprod()
+
+    return df
+
+generar_graficos_tasas()
