@@ -134,11 +134,11 @@ def grafico_de_lineas(df: pd.DataFrame, titulo: str, label_x: str, label_y: str,
     plt.tight_layout()
     plt.show()
 
-def calcular_tasas_laborales(aglomerado: str):
+def calcular_tasas_laborales(aglomerado: str) -> pd.DataFrame:
     resultados  = []
 
-    for anio in AÑOS:
-        df = obtener_datos(aglomerado, anio, CategoriasEPH.INVIVIDUAL)
+    for año in AÑOS:
+        df = obtener_datos(aglomerado, año, CategoriasEPH.INVIVIDUAL)
         if df is None:
             continue
 
@@ -163,7 +163,7 @@ def calcular_tasas_laborales(aglomerado: str):
         poblacion_total = pea + inactivos
 
         resultados.append({
-            "anio": anio,
+            "año": año,
             "actividad": (pea / poblacion_total) * 100,
             "empleo":    (ocupados / poblacion_total) * 100,
             "desocupacion": (desocupados / pea) * 100
@@ -171,86 +171,118 @@ def calcular_tasas_laborales(aglomerado: str):
 
     return pd.DataFrame(resultados)
 
-"""
-def calcular_tasas_laborales(aglomerado: str):
-    resultados = []
-
-    for anio in AÑOS:
-        df = obtener_datos(aglomerado, anio, CategoriasEPH.INVIVIDUAL)
-        if df is None:
-            continue
-
-        # Asegurar que existan las columnas necesarias
-        if "ESTADO" not in df.columns or "PONDERA" not in df.columns:
-            print(f"Columnas faltantes en {anio}")
-            continue
-
-        df["ESTADO"] = pd.to_numeric(df["ESTADO"], errors="coerce")
-        df["PONDERA"] = pd.to_numeric(df["PONDERA"], errors="coerce")
-
-        # Filtrar población de 10 años o más (EPH estándar)
-        df = df[df["CH06"].astype(float) >= 10]
-
-        # Grupos principales
-        ocupados       = df[df["ESTADO"] == 1]["PONDERA"].sum()
-        desocupados    = df[df["ESTADO"] == 2]["PONDERA"].sum()
-        inactivos      = df[df["ESTADO"] == 3]["PONDERA"].sum()
-
-        pea = ocupados + desocupados
-        poblacion_total = pea + inactivos
-
-        if poblacion_total == 0 or pea == 0:
-            continue
-
-        tasa_actividad = (pea / poblacion_total) * 100
-        tasa_empleo    = (ocupados / poblacion_total) * 100
-        tasa_desoc     = (desocupados / pea) * 100
-
-        resultados.append({
-            "anio": anio,
-            "actividad": tasa_actividad,
-            "empleo": tasa_empleo,
-            "desocupacion": tasa_desoc
-        })
-
-    return pd.DataFrame(resultados)
-"""
-
-init()
-
 def graficar_tasas_aglomerado(aglomerado: str, df: pd.DataFrame):
 
-    grafico_de_lineas(df, f"Evolución anual de las tasas de Actividad, Empleo y Desocupación de {aglomerado.title()} (2016-2025)", "Años", "Tasa (%)", "anio", [
+    grafico_de_lineas(df, f"Evolución anual de las tasas de Actividad, Empleo y Desocupación de {aglomerado.title()} (2016-2025)", "Años", "Tasa (%)", "año", [
         {"valor":"actividad", "label":"actividad"},
         {"valor":"empleo", "label":"empleo"},
         {"valor":"desocupacion", "label":"desocupacion"},
     ])
 
-def graficar_tasa_comparativa(tasa: str, df_gran_mendoza: pd.DataFrame, df_gba: pd.DataFrame):
+def graficar_tasas_comparativa(tasa: str, df_gran_mendoza: pd.DataFrame, df_gba: pd.DataFrame):
 
-    df_gran_mendoza = df_gran_mendoza[["anio", tasa]].rename(columns={tasa: "gran_mendoza"})
-    df_gba = df_gba[["anio", tasa]].rename(columns={tasa: "gba"})
+    df_gran_mendoza = df_gran_mendoza[["año", tasa]].rename(columns={tasa: "gran_mendoza"})
+    df_gba = df_gba[["año", tasa]].rename(columns={tasa: "gba"})
 
-    df = df_gran_mendoza.merge(df_gba, on="anio")
+    df = df_gran_mendoza.merge(df_gba, on="año")
 
-    grafico_de_lineas(df, f"Evolución comparativa anual de la tasa de {tasa.title()} entre GBA y Gran Mendoza (2016-2025)", "Años", f"Tasa de {tasa.title()} (%)", "anio", [
+    grafico_de_lineas(df, f"Evolución comparativa anual de la tasa de {tasa.title()} entre GBA y Gran Mendoza (2016-2025)", "Años", f"Tasa de {tasa.title()} (%)", "año", [
         {"valor":"gran_mendoza", "label":"Mendoza"},
         {"valor":"gba", "label":"GBA"},
     ])
 
-
-def generar_graficos_tasas():
+def generar_graficos_tasas() -> pd.DataFrame:
     tasas_gran_mendoza = calcular_tasas_laborales("gran_mendoza")
     tasas_gba = calcular_tasas_laborales("gba")
 
-    graficar_tasa_comparativa("desocupacion", tasas_gran_mendoza, tasas_gba)
-    graficar_tasa_comparativa("actividad", tasas_gran_mendoza, tasas_gba)
-    graficar_tasa_comparativa("empleo", tasas_gran_mendoza, tasas_gba)
+    graficar_tasas_comparativa("desocupacion", tasas_gran_mendoza, tasas_gba)
+    graficar_tasas_comparativa("actividad", tasas_gran_mendoza, tasas_gba)
+    graficar_tasas_comparativa("empleo", tasas_gran_mendoza, tasas_gba)
 
     graficar_tasas_aglomerado("gran_mendoza", tasas_gran_mendoza )
     graficar_tasas_aglomerado("gba", tasas_gba) 
 
-def obtener_ipc_trimestral(): 
+def calcular_tasas_laborales_segun_sexo(aglomerado: str, sexo: int) -> pd.DataFrame:
+    """_summary_
+
+    Args:
+        aglomerado (str): Aglonerado donde sacar tasas
+        sexo (int): 1 -> varon | 2 -> mujer (recomiendo aca poner el valor segun el filtro (niño, adulto, mayor) )
+
+    Returns:
+        _type_: DataFrame con las tasas segun el sexo
+    """
+
+    resultados  = []
+
+    for año in AÑOS:
+        df = obtener_datos(aglomerado, año, CategoriasEPH.INVIVIDUAL)
+        if df is None:
+            continue
+
+        # asegurar si no hay columnas
+        if "ESTADO" not in df.columns or "PONDERA" not in df.columns:
+            continue
+
+        # transformar datos a numericos
+        df["CH04"] = pd.to_numeric(df["CH04"], errors="coerce") # transformar columna del filtro a numerica
+        df["ESTADO"] = pd.to_numeric(df["ESTADO"], errors="coerce")
+        df["PONDERA"] = pd.to_numeric(df["PONDERA"], errors="coerce")
+
+        # ---------------------------------------------------------------------------- #
+        #                   aplicar filtro a la poblacion de muestra                   #
+        # ---------------------------------------------------------------------------- #
+        df = df[df["CH04"] == sexo]
+
+        # filtrar población mayor a 10 años
+        df = df[df["CH06"].astype(float) >= 10]
+
+        # ponderacion (darle un peso a cada dato)
+        ocupados    = df[df["ESTADO"] == 1]["PONDERA"].sum()
+        desocupados = df[df["ESTADO"] == 2]["PONDERA"].sum()
+        inactivos   = df[df["ESTADO"] == 3]["PONDERA"].sum()
+
+        # calculo de tasas
+        pea = ocupados + desocupados
+        poblacion_total = pea + inactivos
+
+        resultados.append({
+            "año": año,
+            "actividad": (pea / poblacion_total) * 100,
+            "empleo":    (ocupados / poblacion_total) * 100,
+            "desocupacion": (desocupados / pea) * 100
+        })
+
+    return pd.DataFrame(resultados)
+
+def graficar_comparacion_tasa_segun_sexo(aglomerado: str, tasa: str):
+    df_hombre = calcular_tasas_laborales_segun_sexo(aglomerado, 1)
+    df_mujer = calcular_tasas_laborales_segun_sexo(aglomerado, 2)
+
+    df_tasa_actividad_comparativa_sexo = pd.DataFrame();
+    df_tasa_actividad_comparativa_sexo["año"] = df_hombre["año"]
+    df_tasa_actividad_comparativa_sexo["hombre"] = df_hombre[tasa]
+    df_tasa_actividad_comparativa_sexo["mujer"] = df_mujer[tasa]
+
+    display_aglomerado = aglomerado.replace("_", " ")
+    if display_aglomerado == "gba":
+        display_aglomerado = display_aglomerado.capitalize()
+    else:
+        display_aglomerado = display_aglomerado.title()
+
+    grafico_de_lineas(
+        df_tasa_actividad_comparativa_sexo, 
+        f"Evolución comparativa de la tasa de {tasa.title()} segun sexo en {display_aglomerado} (2016-2025)", 
+        "Años", 
+        f"Tasa de {tasa}(%)", 
+        "año",
+        [
+            {"valor":"mujer", "label":"Mujer"},
+            {"valor":"hombre", "label":"Hombre"}
+        ]
+    )
+
+def obtener_ipc_trimestral() -> pd.DataFrame: 
     ipc_trimestrales = []
     trimestre = 1
 
@@ -277,7 +309,7 @@ def obtener_ipc_trimestral():
 
     return pd.DataFrame(ipc_trimestrales)
 
-def obtener_ipc_trimestral_acumulada():
+def obtener_ipc_trimestral_acumulada() -> pd.DataFrame:
     ipc_trimestrales = obtener_ipc_trimestral()
     # seteo punto de comparacion
     ipc_trimestrales.loc[0, "ipc"] = 0 
@@ -289,7 +321,7 @@ def obtener_ipc_trimestral_acumulada():
 
     return df
 
-def obtener_ingreso_medio(aglomerado: str):
+def obtener_ingreso_medio(aglomerado: str) -> pd.DataFrame:
     medias_trimestrales = []
     for año in AÑOS:
 
@@ -304,15 +336,67 @@ def obtener_ingreso_medio(aglomerado: str):
 
     return pd.DataFrame(medias_trimestrales);
 
-
-def obtener_ingreso_real(aglomerado: str) -> pd.DataFrame:
+def obtener_ingreso_real(df_ingreso_medio: pd.DataFrame) -> pd.DataFrame:
     df_ipc_trimestral_acumulada = obtener_ipc_trimestral_acumulada()
-    df_ingreso_medio_aglomerado = obtener_ingreso_medio(aglomerado)
 
-    df = df_ipc_trimestral_acumulada.merge(df_ingreso_medio_aglomerado, on=["año", "trimestre"])
+    df = df_ipc_trimestral_acumulada.merge(df_ingreso_medio, on=["año", "trimestre"])
     df["ingreso_media_real"] = df["ingreso_media_ponderada"] / df["ipc_acumulado"]
 
     return df
 
-df = obtener_ingreso_real("gran_mendoza")
-print(df.head())
+def obtener_ingreso_medio_por_sexo(aglomerado: str, sexo: int) -> pd.DataFrame:
+    medias_trimestrales = []
+    for año in AÑOS:
+
+        for i in range(4):
+            df = obtener_datos(aglomerado, año, CategoriasEPH.INVIVIDUAL, i+1)
+            if isinstance(df, pd.DataFrame):
+                # ---------------------------------------------------------------------------- #
+                #                   aplicar filtro a la poblacion de muestra                   #
+                # ---------------------------------------------------------------------------- #
+                df["CH04"] = pd.to_numeric(df["CH04"], errors="coerce")
+                df = df[df["CH04"] == sexo]
+
+                ingreso_total_individual = pd.to_numeric(df["P47T"], errors="coerce")
+                pondera = pd.to_numeric(df["PONDERA"], errors="coerce")
+                media_ponderada = (ingreso_total_individual * pondera).sum() / pondera.sum()
+
+                medias_trimestrales.append({"año":año, "trimestre": i + 1,"ingreso_media_ponderada": media_ponderada})
+
+    return pd.DataFrame(medias_trimestrales);
+
+def graficar_ingreso_real_por_sexo(aglomerado: str):
+    df_ingreso_hombre = obtener_ingreso_medio_por_sexo(aglomerado, 1)
+    df_ingreso_mujer = obtener_ingreso_medio_por_sexo(aglomerado, 2)
+
+    df_ingreso_hombre_real = obtener_ingreso_real(df_ingreso_hombre)
+    df_ingreso_mujer_real = obtener_ingreso_real(df_ingreso_mujer)
+
+    df_ingreso_real_por_sexo = pd.DataFrame();
+    df_ingreso_real_por_sexo["año"] = df_ingreso_hombre_real["año"]
+    df_ingreso_real_por_sexo["hombre"] = df_ingreso_hombre_real["ingreso_media_real"]
+    df_ingreso_real_por_sexo["mujer"] = df_ingreso_mujer_real["ingreso_media_real"]
+
+    display_aglomerado = aglomerado.replace("_", " ")
+    if display_aglomerado == "gba":
+            display_aglomerado = display_aglomerado.capitalize()
+    else:
+            display_aglomerado = display_aglomerado.title()
+
+    grafico_de_lineas(
+        df_ingreso_real_por_sexo, 
+        f"Evolución comparativa de del Salario Real segun sexo en {display_aglomerado} (2017-2025)", 
+        "Años", 
+        f"Media ponderada", 
+        "año",
+        [
+            {"valor":"mujer", "label":"Mujer"},
+            {"valor":"hombre", "label":"Hombre"}
+        ]
+    )
+
+init()
+graficar_comparacion_tasa_segun_sexo("gba", "actividad")
+graficar_ingreso_real_por_sexo("gba")
+
+
