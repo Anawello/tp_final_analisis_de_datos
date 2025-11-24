@@ -7,7 +7,9 @@ from utils import ANIOS
 from typing import TypedDict, List
 from ingresos import graficar_ingreso_real, graficar_ingreso_real_por_sexo
 from tasas import graficar_tasas_segun_sexo, graficar_tasas
-
+from modelado import imputar_ingresos
+from graficos import graficar_distribucion_ingreso
+from geo import graficar_gba_con_ingresos, graficar_aglomerado_con_ingresos
 
 # ------------------------ enumeradores y diccionarios ----------------------- #
 class CategoriasEPH(Enum):
@@ -17,13 +19,6 @@ class CategoriasEPH(Enum):
 
 # -------------------------------- constantes -------------------------------- #
 AGLOMERADO = {"gran_mendoza":"10", "gba":"33"}
-
-
-# ---------------------------- datos geospaciales ---------------------------- #
-# TODO: hacer que se muestre en pantalla en un mapa segun un valor dado
-# datos geoespaciales (prueba para obtener los datos del aglomerado de Mendoza)
-# mapas_aglomerados = gpd.read_file("aglomerados_eph.json")
-# print(mapas_aglomerados[mapas_aglomerados["eph_codagl"] == AGLOMERADO])
 
 def init():
     # precargar datos si aun no lo estan
@@ -108,9 +103,21 @@ df_gran_mendoza = obtener_datos("gran_mendoza")
 
 # muestro graficos 
 
-#graficar_tasas(df_gran_mendoza, df_gba)
-#graficar_tasas_segun_sexo(df_gba, "gba")
-#graficar_tasas_segun_sexo(df_gran_mendoza, "gran_mendoza")
-#graficar_ingreso_real(df_gran_mendoza, df_gba)
-#graficar_ingreso_real_por_sexo(df_gba, "gba")
-#graficar_ingreso_real_por_sexo(df_gran_mendoza, "gran_mendoza")
+graficar_tasas(df_gran_mendoza, df_gba)
+graficar_tasas_segun_sexo(df_gba, "gba")
+graficar_tasas_segun_sexo(df_gran_mendoza, "gran_mendoza")
+graficar_ingreso_real(df_gran_mendoza, df_gba)
+graficar_ingreso_real_por_sexo(df_gba, "gba")
+graficar_ingreso_real_por_sexo(df_gran_mendoza, "gran_mendoza")
+
+df_gba_2_2025 = obtener_datos_aual_trimestral("gba", 2025, 2)
+df_gran_mendoza_2_2025 = obtener_datos_aual_trimestral("gran_mendoza", 2025, 2)
+
+if (isinstance(df_gba, pd.DataFrame)):
+    df_gba_imputado = imputar_ingresos(df_gba_2_2025, "GBA")
+    graficar_distribucion_ingreso(df_gba_2_2025, df_gba_imputado, "GBA")
+
+    df_gran_mendoza_inputado = imputar_ingresos(df_gran_mendoza_2_2025, "Gran Mendoza")
+    graficar_distribucion_ingreso(df_gba_2_2025, df_gran_mendoza_inputado, "Gran Mendoza")
+
+graficar_aglomerado_con_ingresos(df_gran_mendoza, "Gran Mendoza")

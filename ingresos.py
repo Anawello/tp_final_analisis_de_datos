@@ -72,7 +72,7 @@ def obtener_ingreso_nominal(df_muestra: pd.DataFrame) -> pd.DataFrame:
 
 def obtener_ingreso_real(df_ingreso_medio: pd.DataFrame) -> pd.DataFrame:
     df_ipc_trimestral_acumulada = obtener_ipc_trimestral_acumulada()
-
+    
     df = df_ipc_trimestral_acumulada.merge(df_ingreso_medio, on=["anio", "trimestre"])
     df["ingreso_media_real"] = df["ingreso_media_ponderada"] / df["ipc_acumulado"]
 
